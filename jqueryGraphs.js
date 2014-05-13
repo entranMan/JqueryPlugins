@@ -24,9 +24,9 @@
  * 
  */
 
-$.fn.jqueryGraphs = function (parent, yDomain, xDomain, data, options) {
+$.fn.jqueryGraphs = function (yDomain, xDomain, data, options) {
 
-
+	
     //validating
     if (xDomain != null) {
         if (xDomain.end == undefined || xDomain.end == null) {
@@ -44,13 +44,9 @@ $.fn.jqueryGraphs = function (parent, yDomain, xDomain, data, options) {
         throw new Error("Your parameter \"data\" has eighter too many or not have enouch elements: ");
     }
 
-
-
-
     //default graph settings
     var rectWidth = 35;
-    var recLeft = 55;
-    var graphBottom = 185;
+    var recLeft = 55;    
     var recPadding = 5;
     var numberofElements = xDomain.end / xDomain.inc;
     var numberOfTicks = yDomain.end / yDomain.inc;
@@ -58,14 +54,17 @@ $.fn.jqueryGraphs = function (parent, yDomain, xDomain, data, options) {
     var canvasWidth = 900;
     var canvasHeight = 1000;
     var maxRectangleHeight = 0;
-
-
-    for (var l = 0; l < data.length; l++) {
-        if (data[l] > maxRectangleHeight) {
-            maxRectangleHeight = data[l];
-        }
-    }
-
+    var maxRectangleWidth = data.length * 45;
+    var fontSizeRatio;
+    var fontSize = 10;
+    var fontDerv = 10;
+    var heightRatio = 1;
+    var widthRatio = 1;
+    var wOperand = "*";
+    var operand = "*";
+    var recLeftOperand = "-";
+    
+    //set option settings
     if (options != undefined || options != null) {
         if (options.rectangleWidth != undefined){
             rectWidth = options.rectangleWidth;
@@ -87,32 +86,70 @@ $.fn.jqueryGraphs = function (parent, yDomain, xDomain, data, options) {
             canvasHeight = options.canvasHeight;
         }
         
+    }//end of outer if
+    
+    //calculate font sizes based on canvas area
+    fontSizeRatio = (canvasWidth * canvasHeight) / (900 * 1000);
+    fontSize =  fontSize + (8 * fontSizeRatio);
+    fontDerv = (10 - fontSize) / fontSize;
+    
+    //calculate max height    
+    for (var l = 0; l < data.length; l++) {
+        if (data[l] > maxRectangleHeight) {
+            maxRectangleHeight = data[l];
+        }
+    }
+    //convert width and height to ordinal numbers
+    
+    if (canvasHeight > maxRectangleHeight){
+    	heightRatio = (canvasHeight * .85) / maxRectangleHeight;
+    } else {
+    	operand = "/";
+    	heightRatio = maxRectangleHeight / (canvasHeight * .85);
+    }
+    
+    if (canvasWidth > maxRectangleWidth){
+    	widthRatio = (canvasWidth * .85) / maxRectangleWidth;
+    } else {
+    	wOperand = "/";
+    	recLeftOperand = "+";
+    	widthRatio = maxRectangleWidth  / (canvasWidth * .85); 
     }
 
-    $(parent).append("<svg id=\"svgCanvas\" width=\"" + canvasWidth + "\" height=\"" + canvasHeight + "\"></svg>");
+        
+    var graphBottom = canvasHeight - 5;
+    rectWidth = eval(rectWidth + wOperand + widthRatio);
+    
+    $(this).append("<svg id=\"svgCanvas\" width=\"" + canvasWidth + "\" height=\"" + canvasHeight + "\"></svg>");
 
-
+    //the the x axis
     var lineH = $(document.createElementNS("http://www.w3.org/2000/svg", "line")).attr({
         id: "lineHorizon",
         x1: recLeft - 20,
         y1: graphBottom - 15,
-        x2: numberofElements * (rectWidth + recPadding + 10),
+        x2: (numberofElements * (rectWidth + 10)) + (numberofElements *recPadding) + 10,
         y2: graphBottom - 15,
         style: "stroke:black;stroke-width:2"
     });
 
     $("#svgCanvas").append(lineH);
-
-    //try to draw the graph rectangles
+   
+    //try to draw the graph
+    recLeft = rectWidth + 15;
+      
     try {
         for (var i = xDomain.start; i < numberofElements; i++) {
+        	var dataHeight = "data[i]" +operand + heightRatio;
+        	
             var bar = $(document.createElementNS("http://www.w3.org/2000/svg", "rect")).attr({
                 id: "rec" + i,
                 x: recLeft,
                 y: graphBottom - 15,
                 width: rectWidth,
                 style: "stroke-width:2",
-                height: data[i],
+                rx:"8",
+                ry:"8",
+                height: eval(dataHeight),
                 stroke: "black",
                 fill: color,
                 transform: "rotate(180," + (recLeft + 15) + "," + (graphBottom - 15) + ")",
@@ -122,21 +159,23 @@ $.fn.jqueryGraphs = function (parent, yDomain, xDomain, data, options) {
             var group = $(document.createElementNS("http://www.w3.org/2000/svg", "g")).attr({
                 id: "g" + i
             });
-
-
+           
+            console.log(15 * fontSizeRatio);
             var mon = $(document.createElementNS("http://www.w3.org/2000/svg", "text")).attr({
                 id: "label" + i,
-                x: recLeft + 5,
-                y: graphBottom - data[i] - 25,
-                fill: "black"
+                x: recLeft + (rectWidth * fontDerv) + (15 * fontSizeRatio),
+                y: graphBottom - eval(dataHeight) - 25,
+                fill: "black",
+                style:"font-size:" + fontSize
             });
 
             if (xDomain.labels && xDomain.labels.length == data.length) {
                 var lables = $(document.createElementNS("http://www.w3.org/2000/svg", "text")).attr({
                     id: "glabel" + i,
-                    x: recLeft + 2,
+                    x: recLeft + (rectWidth * fontDerv) + (15 * fontSizeRatio),
                     y: graphBottom,
-                    fill: "black"
+                    fill: "black",
+                    style:"font-size:" + fontSize
                 });
                 lables.append(xDomain.labels[i]);
                 $("#svgCanvas").append(lables);
@@ -146,26 +185,30 @@ $.fn.jqueryGraphs = function (parent, yDomain, xDomain, data, options) {
             var prefix = (options != null && options.dataPrefix != undefined) ? options.dataPrefix : "";
             var postfix = (options != null && options.dataPostfix != undefined) ? options.dataPostfix : "";
             mon.append(prefix  + data[i] + postfix);
-            recLeft = recLeft + 35 + recPadding;
+            recLeft = recLeft + rectWidth + recPadding;
 
 
             $("#svgCanvas").append(group);
             $("#g" + i).append(bar);
-            $("#svgCanvas").append(mon);
-        }
+            $("#g" + i).append(mon);
+            //$("#svgCanvas").append(mon);
+        }//end of for
+        
+        
+        //draw the y axis and the ticks
         recLeft = 35;
-
+        
         var lineV = $(document.createElementNS("http://www.w3.org/2000/svg", "line")).attr({
             id: "lineVerizon",
             x1: recLeft + 5,
             y1: graphBottom,
             x2: recLeft + 5,
-            y2: maxRectangleHeight + 10,
+            y2: 10,
             style: "stroke:black;stroke-width:2"
         });
 
         $("#svgCanvas").append(lineV);
-        //draw rectangle labels//
+        
         var tickBottom = graphBottom - 15;
         for (var j = yDomain.start; j <= numberOfTicks; j++) {
             var lineTick = $(document.createElementNS("http://www.w3.org/2000/svg", "line")).attr({
@@ -180,10 +223,11 @@ $.fn.jqueryGraphs = function (parent, yDomain, xDomain, data, options) {
                 id: "label" + j,
                 x: recLeft - 15,
                 y: tickBottom + 3,
-                fill: "black"
+                fill: "black",
+                style:"font-size:" + fontSize
             });
             tickNumber.append(j * yDomain.inc);
-            tickBottom = tickBottom - yDomain.inc;
+            tickBottom = tickBottom - (yDomain.inc * heightRatio) ;
             $("#svgCanvas").append(lineTick);
             $("#svgCanvas").append(tickNumber);
         }
@@ -198,20 +242,22 @@ $.fn.jqueryGraphs = function (parent, yDomain, xDomain, data, options) {
 
 
 };
-//example of how to use this plugin
-var yAxis = {
-    start: 0,
-    end: 75,
-    inc: 10
-};
-var xAxis = {
-    start: 0,
-    end: 5,
-    labels: ["Jan", "Feb", "Mar", "Apr", "May"],
-    inc: 1
-};
-var myData = [25, 75, 50, 5, 31];
+$(function(){
+	
+	var yAxis = {
+	    start: 0,
+	    end: 75,
+	    inc: 5
+	};
+	var xAxis = {
+	    start: 0,
+	    end: 5,
+	    labels: ["Jan", "Feb", "Mar", "Apr", "May"],
+	    inc: 1
+	};
+	var myData = [25, 75, 50, 5, 31];
 
-var options = {dataPostfix:"%"};
+	var options = {canvasWidth:500,canvasHeight:500,dataPostfix:"%"};
 
-$("#drawBoard").jqueryGraphs($("#drawBoard"), yAxis, xAxis, myData, options);
+	$("#drawBoard").jqueryGraphs(yAxis, xAxis, myData, options);
+});
